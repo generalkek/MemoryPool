@@ -2,3 +2,8 @@ vs/
 *.filters
 *.user
 *.obj
+
+[Rr]elease/
+[De]bug/
+x86/
+x64/
