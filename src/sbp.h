@@ -30,7 +30,7 @@ namespace sbp
 
 		//main functions
 		void*				malloc(const size_t size);
-		void				free();
+		void				free(void* ptr);
 
 		inline bool			isEmpty() const {
 												return m_curSize > 0;

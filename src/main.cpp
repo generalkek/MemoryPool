@@ -55,9 +55,27 @@ void timingTest()
 
 }
 
+void incorectFreeOrderTest()
+{
+	int* _1 = new int(4);
+	int* _2 = new int(4);
+	int* _3 = new int(4);
+	int* _4 = new int(4);
+
+	//first three will not be freed, because of wrong order
+	//nonetheless memory will be freed in pool.~StackBasedPool()
+	delete (_1);
+	delete (_2);
+	delete (_3);
+
+	//last will be propperly freed
+	delete (_4);
+}
+
 int main(int argc, char** arvg)
 {
-	timingTest();
+	//timingTest();
+	incorectFreeOrderTest();
 
 	return 0;
 }

@@ -56,6 +56,13 @@ namespace sbp
 	void* StackBasedPool::malloc(const size_t size)
 	{
 		void* ptr = nullptr;
+
+		if (size <= 0)
+		{
+			std::cout << "Error, trying to allocate object with incorrect size:[" << size << "]. No memory is allocated.\n";
+			return ptr;
+		}
+
 		if (m_stackSize > m_curSize + size + ptrSize)
 		{
 			//get result ptr
@@ -86,17 +93,22 @@ namespace sbp
 	} 
 
 	//-----------------------------------------------------------
-	void StackBasedPool::free()
+	void StackBasedPool::free(void* ptr)
 	{
 		if (m_curSize <= 0)
 		{
-			std::cout << "Tring to free from empty stack!\n";
+			std::cout << "Trying to free from empty stack!\n";
 			return;
 		}
 		
 		//move back to pointer with addres of block that we want to free
 		void* fPtr = static_cast<char*>(m_stack) - ptrSize;
 
+		if (*(static_cast<void**>(fPtr)) != ptr)
+		{
+			std::cout << "Error trying to free: [0x" << ptr << "] in wrong order. Memory is not freed.\n";
+			return;
+		}
 		//move back free block 
 		m_stack = *(static_cast<void**>(fPtr));
 
@@ -160,7 +172,7 @@ namespace sbp
 	//-----------------------------------------------------------
 	StackBasedPool& GetInstance(const size_t s)
 	{
-		static StackBasedPool stack{ s };
+		static StackBasedPool stack{ s > MEBIBYTE ? s : MEBIBYTE };
 		return stack;
 	}
 }//namespcae sbp
@@ -170,13 +182,13 @@ namespace sbp
 //-----------------------------------------------------------
 void* operator new(const size_t size)
 {
-	return sbp::GetInstance().malloc(size);
+	return sbp::GetInstance(size).malloc(size);
 }
 
 //-----------------------------------------------------------
 void* operator new[](const size_t size)
 {
-	return sbp::GetInstance().malloc(size);
+	return sbp::GetInstance(size).malloc(size);
 }
 
 //non-allocating placement allocation functions
@@ -197,11 +209,11 @@ void* operator new[](const size_t size)
 //-----------------------------------------------------------
 void operator delete(void* block)
 {
-	sbp::GetInstance().free();
+	sbp::GetInstance().free(block);
 }
 
 //-----------------------------------------------------------
 void operator delete[](void* block)
 {
-	sbp::GetInstance().free();
+	sbp::GetInstance().free(block);
 }
