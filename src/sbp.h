@@ -18,19 +18,25 @@ namespace sbp
 	{
 		explicit			StackBasedPool();
 		explicit			StackBasedPool(const size_t size);
-							StackBasedPool(StackBasedPool&& p);
+
 							~StackBasedPool();
-		
+		//remove copy constuctor and copy assigment
 							StackBasedPool(const StackBasedPool& pool) = delete;
 		StackBasedPool&		operator=(const StackBasedPool& pool) = delete;
+
+		//define non-trivial move constructor and move assigment
+							StackBasedPool(StackBasedPool&& p) noexcept;//maybe make explicit
 		StackBasedPool&		operator=(StackBasedPool&& pool) noexcept;
 
-
+		//main functions
 		void*				malloc(const size_t size);
 		void				free();
 
-		size_t				getPrevBlockSize() const;
-		private:
+		inline bool			isEmpty() const {
+												return m_curSize > 0;
+											};
+
+	private:
 		void				_init(const size_t size);
 	
 #if STACK_BASED_POOL_ENABLE_MEM_LOG
@@ -41,17 +47,32 @@ namespace sbp
 			ALLOC = 1 << INFO,
 			FREE = 1 << ALLOC,
 		};
+
 		void				_log(const void* const p, const size_t s, const MemHint h = MemHint::INFO) const;
 #endif//STACK_BASED_POOL_ENABLE_MEM_LOG
 
 	private:
 		void*				m_stack;//pointer to all memory
-		unsigned long		m_stackSize;
-		unsigned long		m_curSize;
+		unsigned long long	m_stackSize;//max size 
+		unsigned long long	m_curSize;
+
+		//implementation detail, thus make it private
+		static constexpr size_t ptrSize = sizeof(void*);
 	};
 
 	static StackBasedPool& GetInstance(const size_t s = MEBIBYTE);
 }//namespcae sbp
 
-	void* operator new(const size_t size);
+
+//allocation function
+void* operator new(const size_t size);
+void* operator new[](const size_t size);
+
+//non-allocating placement allocation functions
+//void* operator new(const size_t size, void* ptr) noexcept;
+//void* operator new[](const size_t size, void* ptr) noexcept;
+
+
+void operator delete(void* block);
+void operator delete[](void* block);
 #endif //MP_SRC_STACKBASEDPOOL
