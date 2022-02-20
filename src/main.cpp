@@ -29,24 +29,29 @@ private:
 void timingTest()
 {
 	const unsigned int iteration = 100000;
+	const unsigned int repetition = 10;
 
 	Timer t;
 	A* ptr;
-	for (int i = 0; i < iteration; i++)
+	for (int j = 0; j < repetition; j++)
 	{
-		ptr = (A*)std::malloc(sizeof(A));
-		std::free(ptr);
+		for (int i = 0; i < iteration; i++)
+		{
+			ptr = (A*)std::malloc(sizeof(A));
+			std::free(ptr);
+		}
+		std::cout << std::scientific << "malloc-free: repetition:[" << j << "]: seconds " << t.getDelt() << "\n";
 	}
 
-	std::cout << t.getDelt() << "\n";
-
-	for (int i = 0; i < iteration; i++)
+	for (int j = 0; j < repetition; j++)
 	{
-		ptr = new A;
-		delete ptr;
+		for (int i = 0; i < iteration; i++)
+		{
+			ptr = new A;
+			delete ptr;
+		}
+		std::cout <<  "new-delete: repetition:[" << j << "]: seconds " << t.getDelt() << "\n";
 	}
-
-	std::cout << t.getDelt() << "\n";
 
 }
 
