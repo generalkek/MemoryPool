@@ -2,10 +2,16 @@
 
 #include <iostream>
 #include <ctime>
+#include <iomanip>
 
 struct A
 {
-	char data[50];
+	A()
+	{
+		int dummy = 1;
+		dummy++;
+	}
+	char data[500000];
 };
 
 struct Timer
@@ -28,8 +34,10 @@ private:
 
 void timingTest()
 {
-	const unsigned int iteration = 100000;
+	const unsigned int iteration = 100;
 	const unsigned int repetition = 10;
+
+	std::cout << std::setprecision(8);
 
 	Timer t;
 	A* ptr;
@@ -38,9 +46,10 @@ void timingTest()
 		for (int i = 0; i < iteration; i++)
 		{
 			ptr = (A*)std::malloc(sizeof(A));
+			new (ptr) A();
 			std::free(ptr);
 		}
-		std::cout << std::scientific << "malloc-free: repetition:[" << j << "]: seconds " << t.getDelt() << "\n";
+		std::cout <<  "malloc-free: repetition:[" << j << "]: seconds " << t.getDelt() << "\n";
 	}
 
 	for (int j = 0; j < repetition; j++)
@@ -74,7 +83,7 @@ void incorectFreeOrderTest()
 
 int main(int argc, char** arvg)
 {
-	//timingTest();
+	timingTest();
 	incorectFreeOrderTest();
 
 	return 0;

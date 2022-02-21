@@ -1,9 +1,9 @@
 #ifndef MP_SRC_STACKBASEDPOOL
 #define MP_SRC_STACKBASEDPOOL
 
-#if defined(NDEBUG)
+#if defined(NDEBUG) || defined(DISABLE_LOG)
 #define STACK_BASED_POOL_ENABLE_MEM_LOG 0
-#else 
+#else
 #define STACK_BASED_POOL_ENABLE_MEM_LOG 1
 #endif
 
@@ -16,29 +16,32 @@ namespace sbp
 
 	struct StackBasedPool
 	{
-		explicit			StackBasedPool();
-		explicit			StackBasedPool(const size_t size);
+		explicit				StackBasedPool();
+		explicit				StackBasedPool(const size_t size);
 
-							~StackBasedPool();
+								~StackBasedPool();
 		//remove copy constuctor and copy assigment
-							StackBasedPool(const StackBasedPool& pool) = delete;
-		StackBasedPool&		operator=(const StackBasedPool& pool) = delete;
+								StackBasedPool(const StackBasedPool& pool) = delete;
+		StackBasedPool&			operator=(const StackBasedPool& pool) = delete;
 
-		//define non-trivial move constructor and move assigment
-							StackBasedPool(StackBasedPool&& p) noexcept;//maybe make explicit
-		StackBasedPool&		operator=(StackBasedPool&& pool) noexcept;
+		//define non-trivial	 move constructor and move assigment
+								StackBasedPool(StackBasedPool&& p) noexcept;//maybe make explicit
+		StackBasedPool&			operator=(StackBasedPool&& pool) noexcept;
 
 		//main functions
-		void*				malloc(const size_t size);
-		void				free(void* ptr);
+		void*					malloc(const size_t size);
+		void					free(void* ptr);
 
-		inline bool			isEmpty() const {
-												return m_curSize > 0;
-											};
+		inline bool				isEmpty() const {
+													return m_curSize > 0;
+												};
 
 	private:
-		void				_init(const size_t size);
-	
+		void					_init(const size_t size);
+		inline static void*&	_getPrev(void* p) 
+											{
+												return *(static_cast<void**>(p));
+											}
 #if STACK_BASED_POOL_ENABLE_MEM_LOG
 	private:
 		enum class MemHint
@@ -48,13 +51,13 @@ namespace sbp
 			FREE = 1 << ALLOC,
 		};
 
-		void				_log(const void* const p, const size_t s, const MemHint h = MemHint::INFO) const;
+		void					_log(const void* const p, const size_t s, const MemHint h = MemHint::INFO) const;
 #endif//STACK_BASED_POOL_ENABLE_MEM_LOG
 
 	private:
-		void*				m_stack;//pointer to all memory
-		unsigned long long	m_stackSize;//max size 
-		unsigned long long	m_curSize;
+		void*					m_stack;//pointer to all memory
+		unsigned long long		m_stackSize;//max size 
+		unsigned long long		m_curSize;
 
 		//implementation detail, thus make it private
 		static constexpr size_t ptrSize = sizeof(void*);

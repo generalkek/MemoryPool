@@ -49,6 +49,8 @@ namespace sbp
 		this->m_stackSize = p.m_stackSize;
 		this->m_curSize = p.m_curSize;
 		
+		p.m_stackSize = p.m_curSize = 0;
+
 		return *this;
 	}
 
@@ -57,22 +59,16 @@ namespace sbp
 	{
 		void* ptr = nullptr;
 
-		if (size <= 0)
-		{
-			std::cout << "Error, trying to allocate object with incorrect size:[" << size << "]. No memory is allocated.\n";
-			return ptr;
-		}
-
 		if (m_stackSize > m_curSize + size + ptrSize)
 		{
 			//get result ptr
 			ptr = m_stack;
 
-			//get new position for free block
+			//get new position for metadata
 			m_stack = (static_cast<char*>(ptr) + size);
 
 			//wtire in the addres of allocated block
-			*static_cast<void**>(m_stack) = ptr;
+			_getPrev(m_stack) = ptr;
 
 			//move m_stack to new free position
 			m_stack = static_cast<char*>(m_stack) + ptrSize;
@@ -104,13 +100,13 @@ namespace sbp
 		//move back to pointer with addres of block that we want to free
 		void* fPtr = static_cast<char*>(m_stack) - ptrSize;
 
-		if (*(static_cast<void**>(fPtr)) != ptr)
+		if (_getPrev(fPtr) != ptr)
 		{
 			std::cout << "Error trying to free: [0x" << ptr << "] in wrong order. Memory is not freed.\n";
 			return;
 		}
 		//move back free block 
-		m_stack = *(static_cast<void**>(fPtr));
+		m_stack = _getPrev(fPtr);
 
 		//calculate size of freed block
 		size_t ps = static_cast<char*>(fPtr) - static_cast<char*>(m_stack);
@@ -136,10 +132,6 @@ namespace sbp
 		{
 			m_stack = std::malloc(s);
 			m_stackSize = s;
-			if (m_stack)
-			{
-				*(static_cast<int*>(m_stack)) = 0;
-			}
 		}
 	}
 

@@ -41,5 +41,6 @@
 # Ignore all in build folders
 *[Rr]elease/
 *[De]bug/
-x86/
-x64/
+*[De]bugNoLog/
+*x86/
+*x64/
