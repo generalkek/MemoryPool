@@ -83,8 +83,12 @@ void incorectFreeOrderTest()
 
 int main(int argc, char** arvg)
 {
-	timingTest();
-	incorectFreeOrderTest();
+	//timingTest();
+	//incorectFreeOrderTest();
+
+	int* arr = new int[10]{1,2};
+
+	delete[] arr;
 
 	return 0;
 }
