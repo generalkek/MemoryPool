@@ -29,6 +29,10 @@
   <ItemGroup>
     <ClInclude Include="src\ap.h" />
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\ap.cpp" />
+    <ClCompile Include="src\main.cpp" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <ProjectGuid>{88971CC3-F961-4D0D-A35A-91A8A5B7BA97}</ProjectGuid>
