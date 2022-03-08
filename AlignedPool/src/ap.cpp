@@ -13,7 +13,7 @@ namespace align_pool
 		m_data{nullptr},
 		m_dataState{nullptr}
 	{
-		init();
+		_init();
 	}
 
 	//-----------------------------------------------------------
@@ -52,29 +52,11 @@ namespace align_pool
 		return *this;
 	}
 
-//	//-----------------------------------------------------------
-//	void* AlignedPool::malloc()
-//	{
-//		void* res = nullptr;
-//		int id = getCurIdx();
-//		if (id == INVALID_ID)
-//		{
-//			std::cout << "\nError in " << __FUNCTION__ << " pool is full, no available memory for allocation of size :[" << "size" <<"]\n";
-//		}
-//		res = getData(id);
-//		*(m_dataState + id) = 1;
-//
-//#if defined(ALIGNED_POOL_ENABLE_MEM_LOG)
-//		_log(id, m_blockSize, MemHint::ALLOC);
-//#endif
-//		return res;
-//	}
-
 	//-----------------------------------------------------------
 	void* AlignedPool::malloc(size_t size)
 	{
 		size_t blockNum = size / m_blockSize + static_cast<bool>(size % m_blockSize);
-		void* res = tryMallocN(blockNum);
+		void* res = _tryMallocN(blockNum);
 		size_t idx = INVALID_ID;
 
 		if (!res)
@@ -83,9 +65,9 @@ namespace align_pool
 		}
 		else
 		{
-			idx = findIdx(res);
+			idx = _findIdx(res);
 			*(m_dataState + idx) = blockNum;
-#if defined(ALIGNED_POOL_ENABLE_MEM_LOG)
+#if ALIGNED_POOL_ENABLE_MEM_LOG
 			_log(idx, m_blockSize * blockNum, MemHint::ALLOC);
 #endif
 		}
@@ -96,25 +78,24 @@ namespace align_pool
 	//-----------------------------------------------------------
 	void AlignedPool::free(void* const p)
 	{
-		int id = findIdx(p);
+		int id = _findIdx(p);
 		if (id == INVALID_ID)
 		{
 			std::cout << "\nError in " << __FUNCTION__ << " trying to free pointer:[0x" << p << "] which are not from that pool\n";
 		}
-
+		
+		size_t blockNum = *(m_dataState + id);
 		*(m_dataState + id) = 0;
-#if defined(ALIGNED_POOL_ENABLE_MEM_LOG)
-		_log(id, m_blockSize, MemHint::ALLOC);
+#if ALIGNED_POOL_ENABLE_MEM_LOG
+		_log(id, m_blockSize * blockNum, MemHint::FREE);
 #endif
 	}
 
 	//-----------------------------------------------------------
-	void AlignedPool::init()
+	void AlignedPool::_init()
 	{
 		if (m_data)
 		{ 
-			//no need in initialization
-			//maybe message about error
 			return;
 		}
 
@@ -129,7 +110,7 @@ namespace align_pool
 	}
 
 	//-----------------------------------------------------------
-	void* AlignedPool::getData(size_t idx) const
+	void* AlignedPool::_getData(size_t idx) const
 	{
 		void* res = nullptr;
 		if (idx < m_blockCount)
@@ -138,7 +119,7 @@ namespace align_pool
 	}
 
 	//-----------------------------------------------------------
-	size_t AlignedPool::getCurIdx() const
+	size_t AlignedPool::_getCurIdx() const
 	{
 		size_t idx = 0;
 		while (*(m_dataState + idx) != 0 && idx < m_blockCount)
@@ -153,10 +134,10 @@ namespace align_pool
 	}
 
 	//-----------------------------------------------------------
-	void* AlignedPool::tryMallocN(size_t n) const
+	void* AlignedPool::_tryMallocN(size_t n) const
 	{
 		void* res = nullptr;
-		size_t idx = getCurIdx();
+		size_t idx = _getCurIdx();
 		size_t _n = 0;
 		while (_n < n && idx < m_blockCount)
 		{
@@ -170,14 +151,14 @@ namespace align_pool
 
 		if (_n == n)
 		{
-			res = getData(idx);
+			res = _getData(idx);
 		}
 		
 		return res;
 	}
 
 	//-----------------------------------------------------------
-	size_t AlignedPool::findIdx(void* const p) const
+	size_t AlignedPool::_findIdx(void* const p) const
 	{
 		size_t res = INVALID_ID;
 		if (p >= m_data &&
@@ -188,18 +169,18 @@ namespace align_pool
 		return res;
 	}
 
-#if defined(ALIGNED_POOL_ENABLE_MEM_LOG)
+#if ALIGNED_POOL_ENABLE_MEM_LOG
 	//-----------------------------------------------------------
 	void AlignedPool::_log(int blockId, size_t memory, MemHint hint) const
 	{
 		std::cout << "#--------------------------------------------------------------------#\n";
 		if (hint == MemHint::ALLOC)
 		{
-			std::cout << "At memory location:[0x" << getData(blockId) << "] allocated " << memory << " bytes of memory\n";
+			std::cout << "At memory location:[0x" << _getData(blockId) << "] allocated " << memory << " bytes of memory\n";
 		}
 		else if (hint == MemHint::FREE)
 		{
-			std::cout << "At memory location:[0x" << getData(blockId) << "] freed " << memory << " bytes of memory\n";
+			std::cout << "At memory location:[0x" << _getData(blockId) << "] freed " << memory << " bytes of memory\n";
 		}
 		std::cout << "Block index:[" << blockId << "]\n";
 
@@ -223,5 +204,69 @@ namespace align_pool
 		std::cout << "Percent of free blocks:[" << 100.0f * (1.0f - (static_cast<float>(curSize) / m_blockCount))<< "%]\n";
 		std::cout << "#--------------------------------------------------------------------#\n\n";
 	}
-#endif//ALIGNED_POOL_ENABLE_MEM_LOG
+#endif
+
+	//-----------------------------------------------------------
+	AlignedPool& GetInstance()
+	{
+		static AlignedPool smallPool(400, 2048);
+		/*static AlignedPool mediumPool(32, 1000);
+		static AlignedPool largePool(128, 1000);
+
+		if (size <= 4)
+		{
+			return smallPool;
+		}
+		else if (size <= 32)
+		{
+			return mediumPool;
+		}
+		else
+		{
+			return largePool;
+		}*/
+		return smallPool;
+	}
+	//ALIGNED_POOL_ENABLE_MEM_LOG
 }//align_pool
+
+//global operators overload
+//allocation function
+//-----------------------------------------------------------
+void* operator new(const size_t size)
+{
+	return align_pool::GetInstance().malloc(size);
+}
+
+//-----------------------------------------------------------
+void* operator new[](const size_t size)
+{
+	return align_pool::GetInstance().malloc(size);
+}
+
+//non-allocating placement allocation functions
+////-----------------------------------------------------------
+//void* operator new(const size_t size, void* ptr) noexcept
+//{
+//	(void)size;
+//	return ptr;
+//}
+//
+////-----------------------------------------------------------
+//void* operator new[](const size_t size, void* ptr) noexcept
+//{
+//	(void)size;
+//	return ptr;
+//}
+
+//-----------------------------------------------------------
+void operator delete(void* block)
+{
+	align_pool::GetInstance().free(block);
+}
+
+//-----------------------------------------------------------
+void operator delete[](void* block)
+{
+	align_pool::GetInstance().free(block);
+}

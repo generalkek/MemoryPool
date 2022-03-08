@@ -30,18 +30,17 @@ namespace align_pool
 						AlignedPool(AlignedPool&& other) noexcept;
 		AlignedPool&	operator=(AlignedPool&& other) noexcept;
 
-		void*			malloc();
 		void*			malloc(size_t size);
 		void			free(void* const ptr);
 		
 	private:
-		void			init();
-		void*			getData(size_t idx)		const;
-		size_t			getCurIdx()				const;
-		void*			tryMallocN(size_t n)	const;
-		size_t			findIdx(void* const p)	const;
+		void			_init();
+		void*			_getData(size_t idx)		const;
+		size_t			_getCurIdx()				const;
+		void*			_tryMallocN(size_t n)	const;
+		size_t			_findIdx(void* const p)	const;
 
-#if defined(ALIGNED_POOL_ENABLE_MEM_LOG)
+#if ALIGNED_POOL_ENABLE_MEM_LOG
 	private:
 		enum class MemHint
 		{
@@ -60,6 +59,20 @@ namespace align_pool
 	private:
 		static constexpr size_t INVALID_ID = ~0;
 	};
+
+	static AlignedPool& GetInstance();
 }// align_pool
+
+//allocation function
+void* operator new(const size_t size);
+void* operator new[](const size_t size);
+
+//non-allocating placement allocation functions
+//void* operator new(const size_t size, void* ptr) noexcept;
+//void* operator new[](const size_t size, void* ptr) noexcept;
+
+
+void operator delete(void* block);
+void operator delete[](void* block);
 #endif //ALIGNED_POOL_SRC_AP
 
