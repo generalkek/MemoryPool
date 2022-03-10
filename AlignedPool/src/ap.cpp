@@ -8,11 +8,11 @@ namespace align_pool
 	//-----------------------------------------------------------
 	AlignedPool::AlignedPool(size_t blockSize, size_t blockCount)
 		:	
-		m_blockSize{ blockSize },
 		m_blockCount{ blockCount },
 		m_data{nullptr},
 		m_dataState{nullptr}
 	{
+		m_blockSize = blockSize > s_minBlockSize ? blockSize : s_minBlockSize;
 		_init();
 	}
 

@@ -197,7 +197,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\utils\detail.h" />
     <ClInclude Include="src\sbp.h" />
+    <ClInclude Include="../utils/utils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />

@@ -1,6 +1,8 @@
 #ifndef ALIGNED_POOL_SRC_AP
 #define ALIGNED_POOL_SRC_AP
 
+#include "../../utils/detail.h"
+
 #if defined(NDEBUG) || defined(DISABLE_LOG)
 #define ALIGNED_POOL_ENABLE_MEM_LOG 0
 #else
@@ -9,7 +11,7 @@
 
 namespace align_pool
 {
-	constexpr unsigned int KIBIBYTE = 1024;
+	constexpr unsigned int KIBIBYTE = 1024u;
 	constexpr unsigned int MEBIBYTE = KIBIBYTE * KIBIBYTE;
 
 	struct AlignedPool
@@ -57,7 +59,8 @@ namespace align_pool
 		size_t*			m_dataState;
 
 	private:
-		static constexpr size_t INVALID_ID = ~0;
+		static constexpr size_t INVALID_ID = ~0u;
+		static constexpr size_t s_minBlockSize = static_lcm<sizeof(void*), sizeof(size_t)>::value;
 	};
 
 	static AlignedPool& GetInstance();
