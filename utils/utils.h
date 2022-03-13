@@ -76,6 +76,26 @@ namespace pool_utils
 
 		std::cout << "\n\n";
 	}
+
+	template<unsigned int Size>
+	void randomDeleteTest()
+	{
+		const unsigned int arr_size = 5;
+
+		std::cout << std::setprecision(8);
+		std::cout << "TimingTest with object of size: " << Size << "\n";
+
+		A<Size>* ptr[arr_size];
+		int arr[arr_size]{0};
+
+		ptr[0] = new A<Size>;
+		ptr[1] = new A<Size>;
+		ptr[2] = new A<Size>;
+		delete ptr[1];
+		ptr[3] = new A<Size>;
+		ptr[4] = new A<Size>;
+
+	}
 }
 
 #endif//MEM_POOL_UTILS

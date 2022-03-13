@@ -33,12 +33,16 @@ namespace align_pool
 		void*			malloc(size_t size);
 		void			free(void* const ptr);
 		
+		inline bool		isFrom(const void* const ptr) const
+														{
+															return ptr >= m_data && ptr < static_cast<char*>(m_data) + m_blockSize * m_blockCount;
+														}
 	private:
 		void			_init();
-		void*			_getData(size_t idx)		const;
-		size_t			_getCurIdx()				const;
-		void*			_tryMallocN(size_t n)		const;
-		size_t			_findIdx(void* const p)		const;
+		void*			_getData(size_t idx)			const;
+		size_t			_getNextFreeIdx(const size_t)	const;
+		size_t			_tryMallocN(size_t n)			const;
+		size_t			_findIdx(void* const p)			const;
 
 #if ALIGNED_POOL_ENABLE_MEM_LOG
 	private:
@@ -53,6 +57,7 @@ namespace align_pool
 	private:
 		size_t			m_blockSize;
 		size_t			m_blockCount;
+		size_t			m_curFreeIdx;
 		void*			m_data;
 		size_t*			m_dataState;
 
@@ -61,7 +66,7 @@ namespace align_pool
 		static constexpr size_t s_minBlockSize = sizeof(void*);
 	};
 
-	static AlignedPool& GetInstance();
+	static AlignedPool& GetInstance(const size_t size = 0, const void* const ptr = nullptr);
 }// align_pool
 
 //allocation function
