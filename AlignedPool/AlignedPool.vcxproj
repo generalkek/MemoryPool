@@ -29,7 +29,6 @@
   <ItemGroup>
     <ClInclude Include="..\utils\utils.h" />
     <ClInclude Include="src\ap.h" />
-    <ClInclude Include="..\utils\detail.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\ap.cpp" />

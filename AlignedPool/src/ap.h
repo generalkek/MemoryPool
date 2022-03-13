@@ -1,8 +1,6 @@
 #ifndef ALIGNED_POOL_SRC_AP
 #define ALIGNED_POOL_SRC_AP
 
-#include "../../utils/detail.h"
-
 #if defined(NDEBUG) || defined(DISABLE_LOG)
 #define ALIGNED_POOL_ENABLE_MEM_LOG 0
 #else
@@ -39,8 +37,8 @@ namespace align_pool
 		void			_init();
 		void*			_getData(size_t idx)		const;
 		size_t			_getCurIdx()				const;
-		void*			_tryMallocN(size_t n)	const;
-		size_t			_findIdx(void* const p)	const;
+		void*			_tryMallocN(size_t n)		const;
+		size_t			_findIdx(void* const p)		const;
 
 #if ALIGNED_POOL_ENABLE_MEM_LOG
 	private:
@@ -60,7 +58,7 @@ namespace align_pool
 
 	private:
 		static constexpr size_t INVALID_ID = ~0u;
-		static constexpr size_t s_minBlockSize = static_lcm<sizeof(void*), sizeof(size_t)>::value;
+		static constexpr size_t s_minBlockSize = sizeof(void*);
 	};
 
 	static AlignedPool& GetInstance();

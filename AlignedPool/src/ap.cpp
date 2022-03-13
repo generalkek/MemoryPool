@@ -112,10 +112,9 @@ namespace align_pool
 	//-----------------------------------------------------------
 	void* AlignedPool::_getData(size_t idx) const
 	{
-		void* res = nullptr;
 		if (idx < m_blockCount)
-			res = static_cast<char*>(m_data) + idx * m_blockSize;
-		return res;
+			return static_cast<char*>(m_data) + idx * m_blockSize;
+		return nullptr;
 	}
 
 	//-----------------------------------------------------------
@@ -209,7 +208,7 @@ namespace align_pool
 	//-----------------------------------------------------------
 	AlignedPool& GetInstance()
 	{
-		static AlignedPool smallPool(400, 2048);
+		static AlignedPool smallPool(400, KIBIBYTE * 20);
 		/*static AlignedPool mediumPool(32, 1000);
 		static AlignedPool largePool(128, 1000);
 
