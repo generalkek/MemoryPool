@@ -65,11 +65,11 @@ namespace align_pool
 
 		if (idx == INVALID_ID)
 		{
-			std::cout << "\nError in " << __FUNCTION__ << " pool is full, no available memory for allocation of that number:[" << blockNum << "] of memory blocks\n";
+			std::cout << "\nError in " << __FUNCTION__ << " there is no available memory for allocation of that number:[" << blockNum << "] of memory blocks, each with size: [" << m_blockSize << "]\n";
 		}
 		else
 		{
-			res = _getData(idx);
+			res = static_cast<char*>(m_data) + idx * m_blockSize;
 			*(m_dataState + idx) = blockNum;
 			m_curFreeIdx = _getNextFreeIdx(idx + blockNum);
 #if ALIGNED_POOL_ENABLE_MEM_LOG
@@ -88,8 +88,10 @@ namespace align_pool
 		{
 			std::cout << "\nError in " << __FUNCTION__ << " trying to free pointer:[0x" << p << "] which are not from that pool\n";
 		}
-		
+
+#if ALIGNED_POOL_ENABLE_MEM_LOG
 		size_t blockNum = *(m_dataState + id);
+#endif
 		*(m_dataState + id) = 0;
 		m_curFreeIdx = m_curFreeIdx < id ? m_curFreeIdx : id;
 #if ALIGNED_POOL_ENABLE_MEM_LOG
@@ -116,7 +118,7 @@ namespace align_pool
 	}
 
 	//-----------------------------------------------------------
-	void* AlignedPool::_getData(size_t idx) const
+	inline void* AlignedPool::_getData(const size_t idx) const
 	{
 		if (idx < m_blockCount)
 			return static_cast<char*>(m_data) + idx * m_blockSize;
@@ -221,12 +223,12 @@ namespace align_pool
 
 		if (size == 0 && ptr)
 		{
-			if (smallPool.isFrom(ptr))
-				return smallPool;
-			else if (mediumPool.isFrom(ptr))
+			if (mediumPool.isFrom(ptr))
 				return mediumPool;
 			else if (largePool.isFrom(ptr))
 				return largePool;
+			else if (smallPool.isFrom(ptr))
+				return smallPool;
 			else if (giantPool.isFrom(ptr))
 				return giantPool;
 			else

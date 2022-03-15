@@ -9,9 +9,6 @@
 
 namespace align_pool
 {
-	constexpr unsigned int KIBIBYTE = 1024u;
-	constexpr unsigned int MEBIBYTE = KIBIBYTE * KIBIBYTE;
-
 	struct AlignedPool
 	{
 	public:
@@ -39,7 +36,7 @@ namespace align_pool
 														}
 	private:
 		void			_init();
-		void*			_getData(size_t idx)			const;
+		inline void*	_getData(const size_t idx)		const;
 		size_t			_getNextFreeIdx(const size_t)	const;
 		size_t			_tryMallocN(size_t n)			const;
 		size_t			_findIdx(void* const p)			const;

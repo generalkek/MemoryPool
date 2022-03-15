@@ -4,8 +4,9 @@
 
 int main()
 {
-	pool_utils::timingTest<4>();
-	pool_utils::timingTest<400>();
+	pool_utils::timingTest<12>();
+	pool_utils::timingTest<16>();
+	pool_utils::timingTest<64>();
 	pool_utils::timingTest<4000>();
 	//pool_utils::randomDeleteTest<8>();
 	//pool_utils::randomDeleteTest<128>();

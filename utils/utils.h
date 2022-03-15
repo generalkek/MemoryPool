@@ -39,7 +39,7 @@ namespace pool_utils
 	template<unsigned int Size>
 	void timingTest()
 	{
-		const unsigned int iteration = 100000;
+		const unsigned int iteration = 210000;
 		const unsigned int repetition = 10;
 
 		std::cout << std::setprecision(8);
