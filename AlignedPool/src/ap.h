@@ -7,16 +7,25 @@
 #define ALIGNED_POOL_ENABLE_MEM_LOG  1
 #endif
 
+#define APM_POOL_NUMBER 16
+#define APM_HIT_COUNT_TO_BE_CACHED 3
+#define APM_ENABLE_CACHING 1
+
 namespace align_pool
 {
+#if APM_ENABLE_CACHING
+	class AlignedPoolManager;
+#endif//APM_ENABLE_CACHING
+	
 	struct AlignedPool
 	{
 	public:
 		/*
-		first parameter is blockSize
-		second parameter is number of blocks of size blockSize
+		first parameter is a blockSize
+		second parameter is the number of blocks of blockSize size
 		*/
 		explicit		AlignedPool(size_t blockSize, size_t blockCount);
+		explicit		AlignedPool(size_t blockSize, size_t blockCount, char* ptr);
 						~AlignedPool();
 
 		//delete copy constuctor and copy assigment
@@ -27,8 +36,10 @@ namespace align_pool
 						AlignedPool(AlignedPool&& other) noexcept;
 		AlignedPool&	operator=(AlignedPool&& other) noexcept;
 
-		void*			malloc(size_t size);
-		void			free(void* const ptr);
+		void*			malloc();
+		void*			malloc_n(const size_t blockNumber);
+		void			free(const void* ptr);
+		void			free_n(const void* ptr, size_t blockNumber);
 		
 		inline bool		isFrom(const void* const ptr) const
 														{
@@ -39,7 +50,7 @@ namespace align_pool
 		inline void*	_getData(const size_t idx)		const;
 		size_t			_getNextFreeIdx(const size_t)	const;
 		size_t			_tryMallocN(size_t n)			const;
-		size_t			_findIdx(void* const p)			const;
+		size_t			_findIdx(const void* p)			const;
 
 #if ALIGNED_POOL_ENABLE_MEM_LOG
 	private:
@@ -51,31 +62,176 @@ namespace align_pool
 		};
 		void			_log(int blockId, size_t memory, MemHint hint) const;
 #endif//ALIGNED_POOL_ENABLE_MEM_LOG
+
+#if APM_ENABLE_CACHING
+		
+		friend AlignedPoolManager;
+		inline void			_fillRange(void*& b, void*& e) const;
+#endif//APM_ENABLE_CACHING
 	private:
-		size_t			m_blockSize;
-		size_t			m_blockCount;
-		size_t			m_curFreeIdx;
 		void*			m_data;
 		size_t*			m_dataState;
+		size_t			m_curFreeIdx;
+		size_t			m_blockSize;
+		size_t			m_blockCount;
 
 	private:
 		static constexpr size_t INVALID_ID = ~0u;
-		static constexpr size_t s_minBlockSize = sizeof(void*);
+	};
+
+	class AlignedPoolManager
+	{
+	public:
+		//prevent the creation of large numbers of pools
+		
+		AlignedPoolManager();
+		~AlignedPoolManager();
+
+		AlignedPoolManager(const AlignedPoolManager&) = delete;
+		AlignedPoolManager& operator=(const AlignedPoolManager&) = delete;
+
+		AlignedPoolManager(AlignedPoolManager&& other) noexcept;
+		AlignedPoolManager& operator=(AlignedPoolManager&& other) noexcept;
+
+		/*
+		actualy allocates memory for all pools, which are added
+		*/
+		void	init();
+
+		void	addPool(size_t blockSize, size_t blockNum);
+		void	removePool(size_t blockSize, size_t blockNum);
+
+		void*	malloc(size_t size);
+		void*	malloc_n(size_t size, size_t blockNumber);
+		
+		void	free(const void* ptr);
+		void	free_n(const void* ptr, size_t blockNumber);
+	private:
+		struct PoolInfo
+		{
+			PoolInfo() : blockSize{ 0u }, blockNumber{ 0u }, pool{ nullptr } {}
+			PoolInfo(PoolInfo&& other) noexcept;
+			PoolInfo& operator=(PoolInfo&& other) noexcept;
+
+			size_t			blockSize;
+			size_t			blockNumber;
+			AlignedPool*	pool;
+		};
+#if APM_ENABLE_CACHING
+		struct Cache
+		{
+			Cache() : id{ ~0u }, hits{ 0u } {}
+			size_t id;
+			size_t hits;
+
+			union
+			{
+				size_t size;
+				struct
+				{
+					void* begin;
+					void* end;
+				};
+			};
+		};
+		Cache				m_cacheMalloc;
+		Cache				m_cacheFree;
+#endif//APM_ENABLE_CACHING
+	private:
+		char*				m_data;
+		PoolInfo			m_pools[APM_POOL_NUMBER];
+
+		static constexpr size_t s_poolSize = sizeof(AlignedPool);
+	};
+
+	//-----------------------------------------------------------
+	extern AlignedPoolManager g_poolManager;
+
+	//-----------------------------------------------------------
+	void setupPoolManager();
+
+	//-----------------------------------------------------------
+	template<typename T>
+	class AlignedPoolAllocator
+	{
+	public:
+		typedef T			value_type;
+		
+		typedef T*			pointer;
+		typedef const T*	const_pointer;
+
+		typedef T&			reference;
+		typedef const T&	const_reference;
+
+		typedef size_t		size_type;
+		typedef int			difference_type;
+
+		template <typename U>
+		struct rebind
+		{
+			typedef AlignedPoolAllocator<U> other;
+		};
+
+	public:
+
+		AlignedPoolAllocator() {};
+
+		template <typename U>
+		AlignedPoolAllocator(const AlignedPoolAllocator<U>& other) {};
+
+		AlignedPoolAllocator& operator=(const AlignedPoolAllocator& other) {};
+
+		
+		static pointer address(reference r) { return &r; }
+		static const_pointer address(const_reference r) { return &r; }
+				
+		static pointer allocate(const size_type n, const void* = 0)
+		{
+			pointer res = nullptr;
+			if (n == 1)
+			{
+				res = static_cast<pointer>(g_poolManager.malloc(sizeof(value_type)));
+			}
+			else if (n > 1)
+			{
+				res = static_cast<pointer>(g_poolManager.malloc_n(sizeof(value_type), n));
+			}
+
+			if (!res)
+			{
+				throw std::bad_alloc();
+			}
+
+			return res;
+		}
+
+		static void deallocate(const_pointer ptr, const size_type blockNumber)
+		{
+			blockNumber == 1 
+				? g_poolManager.free(ptr) 
+				: g_poolManager.free_n(ptr, blockNumber);
+		}
+
+		static  void construct(pointer const p, value_type&& t)
+		{
+			new (static_cast<void*>(p)) value_type(std::forward<value_type>(t));
+		}
+
+		static  void destroy(const_pointer ptr)
+		{
+			ptr->~value_type();
+		}
+		
+		bool operator==(const AlignedPoolAllocator&) const { return true; }
+		bool operator!=(const AlignedPoolAllocator&) const { return false; }
+
+		constexpr static size_type max_size() noexcept
+		{
+			return static_cast<size_type>(-1) / sizeof(value_type);
+		}
 	};
 
 	static AlignedPool& GetInstance(const size_t size = 0, const void* const ptr = nullptr);
 }// align_pool
-
-//allocation function
-void* operator new(const size_t size);
-void* operator new[](const size_t size);
-
-//non-allocating placement allocation functions
-//void* operator new(const size_t size, void* ptr) noexcept;
-//void* operator new[](const size_t size, void* ptr) noexcept;
-
-
-void operator delete(void* block);
-void operator delete[](void* block);
 #endif //ALIGNED_POOL_SRC_AP
 

@@ -39,9 +39,9 @@ namespace sbp
 	private:
 		void					_init(const size_t size);
 		inline static void*&	_getPrev(void* p) 
-											{
-												return *(static_cast<void**>(p));
-											}
+												{
+													return *(static_cast<void**>(p));
+												}
 #if STACK_BASED_POOL_ENABLE_MEM_LOG
 	private:
 		enum class MemHint
