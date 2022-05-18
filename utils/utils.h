@@ -144,7 +144,7 @@ namespace pool_utils
 		typedef pool_utils::A<Size> MyType;
 		const size_t repetion = 1000;
 		const size_t arraySize = 2000;
-		MyType* arr[arraySize];
+		MyType* arr[arraySize]{nullptr};
 
 #if defined(PROJ_ALIGNED_POOL)
 		CustomPool loc{ Size, arraySize };
@@ -173,8 +173,7 @@ namespace pool_utils
 			}
 		}
 		std::cout << "malloc-free time: " << t.getDelt() << "\n";
-
-
+		
 		//---------------------------------------------------------------------
 		// malloc_n-free_n
 		//---------------------------------------------------------------------

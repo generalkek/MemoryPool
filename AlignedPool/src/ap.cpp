@@ -275,50 +275,6 @@ namespace align_pool
 #endif //APM_ENABLE_CACHING
 	
 	//-----------------------------------------------------------
-	AlignedPool& GetInstance(const size_t size /*0*/, const void* const ptr /*nullptr*/)
-	{
-		static AlignedPool smallPool(4, 1000 * 20);
-		static AlignedPool mediumPool(32, 1000 * 20);
-		static AlignedPool largePool(128, 1000 * 20);
-		static AlignedPool giantPool(512, 1000 * 20);
-
-		if (size == 0 && ptr)
-		{
-			if (mediumPool.isFrom(ptr))
-				return mediumPool;
-			else if (largePool.isFrom(ptr))
-				return largePool;
-			else if (smallPool.isFrom(ptr))
-				return smallPool;
-			else if (giantPool.isFrom(ptr))
-				return giantPool;
-			else
-			{
-				throw std::bad_exception();
-			}
-		}
-		else
-		{
-			if (size <= 4)
-			{
-				return smallPool;
-			}
-			else if (size <= 32)
-			{
-				return mediumPool;
-			}
-			else if (size <= 128)
-			{
-				return largePool;
-			}
-			else
-			{
-				return giantPool;
-			}
-		}
-	}
-
-	//-----------------------------------------------------------
 	AlignedPoolManager::PoolInfo::PoolInfo(AlignedPoolManager::PoolInfo&& other) noexcept
 	{
 		*this = std::move(other);

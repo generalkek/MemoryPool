@@ -230,8 +230,6 @@ namespace align_pool
 			return static_cast<size_type>(-1) / sizeof(value_type);
 		}
 	};
-
-	static AlignedPool& GetInstance(const size_t size = 0, const void* const ptr = nullptr);
 }// align_pool
 #endif //ALIGNED_POOL_SRC_AP
 
