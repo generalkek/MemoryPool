@@ -139,9 +139,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="src/hbp.h" />
+    <ClInclude Include="src\Handle.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\Handle.cpp" />
     <ClCompile Include="src\hbp.cpp" />
+    <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
