@@ -7,8 +7,6 @@
 #define HEAP_BASED_POOL_ENABLE_MEM_LOG  1
 #endif
 
-#include "Handle.h"
-
 namespace hbp
 {
 	typedef size_t Size;
@@ -26,10 +24,27 @@ namespace hbp
 		void					free(void* ptr);
 
 		void					addBLock(void* ptr, CSize size);
-		void					reinit(void* ptr, CSize size);
+		void					reinit(FreeListStorage* ptr);
+
+		inline CSize			getObjSizeInBlocks(void* ptr) const 
+		{
+			return *(static_cast<size_t*>(static_cast<void*>(static_cast<char*>(ptr) - s_ptrSize))) - 1;
+		}
+
+		inline CSize			getObjSizeInBytes(void* ptr) const
+		{
+			return getObjSizeInBlocks(ptr) * s_ptrSize;
+		}
+
+	public:
+		//defragmentation functionality
+		void					getNextHole(void*& nextHole, Size& holeSize, void* start = nullptr) const;
+		CSize					getHoleSizeInBlocks(void* ptr) const;
+
+		void					swap(void* dest, void* src, CSize size);
 	private:
 
-#ifdef HEAP_BASED_POOL_ENABLE_MEM_LOG
+#if HEAP_BASED_POOL_ENABLE_MEM_LOG
 		void					_log(const void* const ptr, CSize blockNum, const bool isAllocation);
 #endif// HEAP_BASED_POOL_ENABLE_MEM_LOG
 
@@ -61,10 +76,25 @@ namespace hbp
 		void*					malloc(CSize size);
 		void					free(void* ptr);
 
+	public:
+		bool					_reinit();
+
 	private:
-		void*			m_data;
+		inline bool				_canDefragment(CSize size) const { return m_maxSize - m_currentSize >= size; }
+	public:
+		void					_defragment();
+
+	private:
 		FreeListStorage m_storage;
+		void*			m_data;
+		Size			m_currentSize;
+		Size			m_maxSize;
 	};
+
+	//forward declarations
+	class IHandle;
+	template<typename T>
+	class Handle;
 
 	class HeapStorageHandles : public HeapStorage
 	{
@@ -72,10 +102,18 @@ namespace hbp
 								HeapStorageHandles();
 		virtual					~HeapStorageHandles();
 
-		Handle*					malloc(CSize size);
-		void					free(Handle* ptr);
+		void					free(IHandle* ptr);
+		void					free_n(IHandle* ptr, CSize handlesNumber);
 
+		template<typename T>
+		Handle<T>*				allocHandle(CSize handlesNumber = 1)
+		{
+			IHandle* h = HeapStorageHandles::malloc(sizeof(T));
+			return static_cast<Handle<T>*>(h);
+		}
+	private:
+		IHandle*				malloc(CSize size);
+		IHandle*				malloc_n(CSize size, CSize handleNumber);
 	};
-
 }//namespace hbp
 #endif //HEAP_BASED_POOL_SRC_HBP

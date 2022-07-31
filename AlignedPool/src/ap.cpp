@@ -594,6 +594,11 @@ namespace align_pool
 	//-----------------------------------------------------------
 	AlignedPoolManager g_poolManager;
 
+	AlignedPoolManager& GetAlignedPoolManager()
+	{
+		return g_poolManager;
+	}
+
 	//-----------------------------------------------------------
 	void setupPoolManager()
 	{

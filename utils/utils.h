@@ -13,6 +13,8 @@ typedef align_pool::AlignedPool CustomPool;
 #include "../StackBasedPool/src/sbp.h"
 typedef sbp::StackBasedPool CustomPool;
 #elif defined(PROJ_HEAP_BASED_POOL)
+#include "../HeapBasedPool/src/hbp.h"
+#include "../HeapBasedPool/src/Handle.h"
 #endif
 
 namespace pool_utils
@@ -46,6 +48,7 @@ namespace pool_utils
 		clock_t start;
 	};
 
+#if defined(PROJ_ALIGNED_POOL)
 	template<unsigned int Size>
 	void timingTest()
 	{
@@ -117,7 +120,9 @@ namespace pool_utils
 		std::cout << "Average time:[" << accum / repetition << "]\n";
 		std::cout << "\n\n";
 	}
+#endif
 
+#ifndef PROJ_HEAP_BASED_POOL
 	template<unsigned int Size>
 	void randomDeleteTest()
 	{
@@ -232,6 +237,7 @@ namespace pool_utils
 		}
 		std::cout << "AlignedPool malloc_n-free time: " << t.getDelt() << "\n";
 
+#if defined(PROJ_ALIGNED_POOL)
 		//---------------------------------------------------------------------
 		// AlignedPoolManager malloc-free
 		//---------------------------------------------------------------------
@@ -239,13 +245,13 @@ namespace pool_utils
 		{
 			for (int i = 0; i < arraySize; i++)
 			{
-				*(arr + i) = (MyType*)align_pool::g_poolManager.malloc(Size);
+				*(arr + i) = (MyType*)align_pool::GetAlignedPoolManager().malloc(Size);
 				(*(arr + i))->data[0] = 'a';
 			}
 			
 			for (int i = 0; i < arraySize; i++)
 			{
-				align_pool::g_poolManager.free(*(arr + i));
+				align_pool::GetAlignedPoolManager().free(*(arr + i));
 			}
 		}
 		std::cout << "AlignedPoolManager time: " << t.getDelt() << "\n";
@@ -255,16 +261,18 @@ namespace pool_utils
 		//---------------------------------------------------------------------
 		for (int j = 0; j < repetion; j++)
 		{
-			*(arr) = (MyType*)align_pool::g_poolManager.malloc_n(Size, arraySize);
+			*(arr) = (MyType*)align_pool::GetAlignedPoolManager().malloc_n(Size, arraySize);
 			
 			for (int k = 0; k < arraySize; k++)
 				arr[k]->data[0] = 'a';
 
-			align_pool::g_poolManager.free_n(*(arr), arraySize);
+			align_pool::GetAlignedPoolManager().free_n(*(arr), arraySize);
 		}
 		std::cout << "AlignedPoolManager time: " << t.getDelt() << "\n";
 		std::cout << "------------------------------------------\n\n";
+#endif //PROJ_ALIGNED_POOL
 	}
+#endif
 }
 
 #endif//MEM_POOL_UTILS

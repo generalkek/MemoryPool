@@ -97,6 +97,7 @@ namespace align_pool
 		actualy allocates memory for all pools, which are added
 		*/
 		void	init();
+		bool	isInitialized() const { return m_data != nullptr; }
 
 		void	addPool(size_t blockSize, size_t blockNum);
 		void	removePool(size_t blockSize, size_t blockNum);
@@ -145,7 +146,7 @@ namespace align_pool
 	};
 
 	//-----------------------------------------------------------
-	extern AlignedPoolManager g_poolManager;
+	AlignedPoolManager& GetAlignedPoolManager();
 
 	//-----------------------------------------------------------
 	void setupPoolManager();
@@ -190,11 +191,11 @@ namespace align_pool
 			pointer res = nullptr;
 			if (n == 1)
 			{
-				res = static_cast<pointer>(g_poolManager.malloc(sizeof(value_type)));
+				res = static_cast<pointer>(GetAlignedPoolManager().malloc(sizeof(value_type)));
 			}
 			else if (n > 1)
 			{
-				res = static_cast<pointer>(g_poolManager.malloc_n(sizeof(value_type), n));
+				res = static_cast<pointer>(GetAlignedPoolManager().malloc_n(sizeof(value_type), n));
 			}
 
 			if (!res)
@@ -208,8 +209,8 @@ namespace align_pool
 		static void deallocate(const_pointer ptr, const size_type blockNumber)
 		{
 			blockNumber == 1 
-				? g_poolManager.free(ptr) 
-				: g_poolManager.free_n(ptr, blockNumber);
+				? GetAlignedPoolManager().free(ptr) 
+				: GetAlignedPoolManager().free_n(ptr, blockNumber);
 		}
 
 		static  void construct(pointer const p, value_type&& t)
