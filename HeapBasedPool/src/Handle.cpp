@@ -47,6 +47,7 @@ namespace hbp
 	//-----------------------------------------------------------
 	IHandle::IHandle(IHandle&& other) noexcept
 	{
+		release();
 		this->m_id = other.m_id;
 		other.m_id = s_invalidId;
 	}
@@ -54,8 +55,14 @@ namespace hbp
 	//-----------------------------------------------------------
 	IHandle::~IHandle()
 	{
-		if (m_id != s_invalidId)
-			GetHandleManager().erase(m_id);
+		release();
+	}
+
+	void IHandle::operator=(IHandle&& other) noexcept
+	{
+		release();
+		this->m_id = other.m_id;
+		other.m_id = s_invalidId;
 	}
 
 	void IHandle::operator=(void* ptr)
@@ -69,11 +76,19 @@ namespace hbp
 		return GetHandleManager().getHandle(m_id);
 	}
 
+	void IHandle::release()
+	{
+		if (m_id != s_invalidId)
+		{
+			GetHandleManager().erase(m_id);
+			m_id = s_invalidId;
+		}
+	}
+
 	//-----------------------------------------------------------
 	IHandle* helpers::makeHandle(void* obj, CUInt handlesNumber, CUInt objOffset)
 	{
-		if (!align_pool::GetAlignedPoolManager().isInitialized())
-		{
+		if (!align_pool::GetAlignedPoolManager().isInitialized()) {
 			customSetupAlignedPool();
 		}
 		IHandle* h = static_cast<IHandle*>(align_pool::GetAlignedPoolManager().malloc_n(sizeof(IHandle), handlesNumber));
@@ -86,18 +101,24 @@ namespace hbp
 	}
 
 	//-----------------------------------------------------------
-	void* helpers::destroyHandle(IHandle* ptr)
+	void* helpers::destroyHandle(IHandle* ptr, CUInt handlesNumber)
 	{
-		void* dataPtr = hPtr(static_cast<Handle<void>*>(ptr));
-		ptr->~IHandle();
-		align_pool::GetAlignedPoolManager().free(ptr);
-		return dataPtr;
+		if (!ptr)
+			return nullptr;
+
+		IHandle* first = ptr;
+		void* obj = ptr ? hPtr(static_cast<Handle<void>*>(ptr)) : nullptr;
+		for (UInt i = 0; i < handlesNumber; i++)
+		{
+			(first+i)->~IHandle();
+		}
+		align_pool::GetAlignedPoolManager().free_n(first, handlesNumber);
+		return obj;
 	}
 
 	//-----------------------------------------------------------
 	HandleManager::HandleManager()
-	{
-	}
+	{}
 
 	//-----------------------------------------------------------
 	HandleManager::~HandleManager()
@@ -119,7 +140,7 @@ namespace hbp
 	void HandleManager::insert(CUInt id, void* ptr)
 	{
 		if (m_handles.find(id) != m_handles.cend()){
-			printf_s("There is already a handle with id[%d]\n", id);
+			printf_s("There is already a handle with id[%zd]\n", id);
 		} else {
 			m_handles[id] = ptr;
 		}
@@ -128,8 +149,11 @@ namespace hbp
 	//-----------------------------------------------------------
 	void HandleManager::erase(CUInt id)
 	{
-		if (m_handles.size() != 0 && m_handles.find(id) != m_handles.cend()) {
-			m_handles.erase(id);
+		HandleTable::iterator it;
+		if (m_handles.size() != 0 && 
+			(it = m_handles.find(id)) != m_handles.cend()) {
+			//delete item from table
+			m_handles.erase(it);
 			if (m_handles.size() == 0) {
 				ResetHandlesId();
 			}
@@ -140,7 +164,7 @@ namespace hbp
 	void HandleManager::replace(CUInt id, void* ptr)
 	{
 		if (m_handles.find(id) == m_handles.cend()) {
-			printf_s("There isn't a handle with id[%d]\n", id);
+			printf_s("There isn't a handle with id[%zd]\n", id);
 		}
 		else {
 			m_handles[id] = ptr;

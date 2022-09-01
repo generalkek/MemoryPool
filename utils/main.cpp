@@ -40,41 +40,15 @@ int main(int argc, char** arvg)
 
 #elif defined(PROJ_HEAP_BASED_POOL)
 
-using namespace hbp::helpers;
-
-template <typename T>
-using HandleVec = std::vector< hbp::Handle<T>, hbp::HandleAllocator<hbp::Handle<T> > >;
-
-
-template <typename C, typename _Result = GetHandleType_t<std::remove_reference_t<C>>>
-_Result* GetObjPtr(hbp::HeapStorage& storage, const C&)
-{
-	return static_cast<_Result*>(storage.malloc(sizeof(_Result)));
-}
-
 int main()
 {
-	int s = 1000;
-	hbp::HeapStorage storage;
-	storage.init(s);
+	pool_utils::timingTestHandle<4>();
+	pool_utils::timingTestHandle<16>();
+	pool_utils::timingTestHandle<64>();
+	pool_utils::timingTestHandle<256>();
 
-	const int arrS = 10;
-	HandleVec<int> handleContainer;
-
-	handleContainer.reserve(10);
-
-	for (int i = 0; i < arrS; i++)
-	{
-		handleContainer.push_back(GetObjPtr(storage, handleContainer));
-		//handleContainer.push_back(static_cast<int*>(storage.malloc(sizeof(int))));
-		hRef(&handleContainer.back()) = i;
-	}
-	
-	for (auto& x : handleContainer)
-	{
-		printf_s("Value:[%d]\n", hRef(&x));
-	}
-
+	pool_utils::HandleTestReinitFeature();
+	pool_utils::HandleTestDefragmentationFeature();
 	return 0;
 }
 

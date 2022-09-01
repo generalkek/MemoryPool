@@ -4,8 +4,10 @@
 
 namespace hbp {
 
-	typedef unsigned int			UInt;
-	typedef const unsigned int		CUInt;
+	typedef ptrdiff_t				Int;
+	typedef const ptrdiff_t			CInt;
+	typedef size_t					UInt;
+	typedef const size_t			CUInt;
 	typedef std::map<UInt, void*>	HandleTable;
 
 	constexpr static UInt s_invalidId = ~0;
@@ -20,12 +22,14 @@ namespace hbp {
 				IHandle(IHandle&& other) noexcept;
 				virtual ~IHandle();
 
+				void operator=(IHandle&& other) noexcept;
 				void operator=(void* ptr);
 	protected:
 
-		void*	get() const;
+				void*	get() const;
 
 	private:
+				void	release();
 		UInt	m_id;
 	};
 
@@ -46,7 +50,12 @@ namespace hbp {
 				~Handle() 
 					{};
 
-				template<typename Mytype>
+				void operator=(Handle<T>&& other) noexcept
+				{
+					IHandle::operator=(std::move(*static_cast<IHandle*>(&other)));
+				}
+
+				template<typename MyType>
 				MyType* pointer() const
 				{
 					return static_cast<MyType*>(get());
@@ -61,7 +70,7 @@ namespace hbp {
 				template<typename MyType>
 				MyType& ref() const
 				{
-					return *pointer<MyType>();
+					return *(pointer<MyType>());
 				}
 	};
 	
@@ -69,7 +78,7 @@ namespace hbp {
 	{
 	public:
 		typedef HandleTable::iterator iterator;
-
+		
 	public:
 						HandleManager();
 						~HandleManager();
@@ -94,7 +103,7 @@ namespace hbp {
 
 		IHandle* makeHandle(void* obj, CUInt handlesNumber = 1, CUInt objOffset = 0);
 
-		void* destroyHandle(IHandle* ptr);
+		void* destroyHandle(IHandle* ptr, CUInt handlesNumber = 1);
 
 		template<typename MyType>
 		MyType hVal(Handle<MyType>* handle)
@@ -114,6 +123,24 @@ namespace hbp {
 			return handle->ref<MyType>();
 		}
 
+		template<typename MyType>
+		MyType hVal(Handle<MyType> & handle)
+		{
+			return handle.value<MyType>();
+		}
+
+		template<typename MyType>
+		MyType* hPtr(Handle<MyType> & handle)
+		{
+			return handle.pointer<MyType>();
+		}
+
+		template<typename MyType>
+		MyType& hRef(Handle<MyType> & handle)
+		{
+			return handle.ref<MyType>();
+		}
+
 		template<typename T>
 		struct GetHandleType {
 			typedef T type;
@@ -130,6 +157,11 @@ namespace hbp {
 
 	}//namespace helpers
 
+	//defined in hbp.cpp
+	extern void handleRelease(void* ptr);
+
+	//generic HandleAllocator for different STL stuff such as 
+	//_Container_base12, _Iterator_base12, _Container_proxy etc. 
 	template<typename T>
 	class HandleAllocator
 	{
@@ -197,6 +229,7 @@ namespace hbp {
 		}
 	};
 
+	//specialization for any Handle
 	template<typename T>
 	class HandleAllocator<Handle<T>>
 	{
@@ -237,19 +270,17 @@ namespace hbp {
 
 		static void deallocate(pointer ptr, const size_type blockNumber)
 		{
-			for (size_type i = 0; i < blockNumber; i++)
-			{
-				helpers::destroyHandle(ptr + i);
-			}
+			handleRelease(helpers::destroyHandle(ptr, blockNumber));
 		}
 
-		static  void construct(pointer const p, void*&& t)
+		static  void construct(pointer const p, value_type&& t)
 		{
-			new (static_cast<void*>(p)) value_type(std::forward<void*>(t));
+			new (static_cast<void*>(p)) value_type(std::forward<value_type>(t));
 		}
 
 		static  void destroy(const_pointer ptr)
 		{
+			handleRelease(ptr->pointer<T>());
 			ptr->~value_type();
 		}
 
@@ -261,7 +292,6 @@ namespace hbp {
 			return static_cast<size_type>(-1) / sizeof(value_type);
 		}
 	};
-
 }//namespace hbp
 
 #endif//HEAP_BASED_POOL_SRC_HANDLE

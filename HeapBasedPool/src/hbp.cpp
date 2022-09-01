@@ -8,39 +8,53 @@ namespace hbp
 	//-----------------------------------------------------------
 	void* FreeListStorage::malloc(CSize size)
 	{
-		size_t blockNum = size / s_ptrSize	// number of blocks
-			+ (size % s_ptrSize ? 1 : 0)	// for aligment
-			+ 1;							// for metadata
-		void* start = &m_data;
-		void* iter;
+		if (size == 0u)
+			return nullptr;
 
-		do {
-			if (!_nextOf(start))
-				return nullptr;
+		Size minS = size < s_ptrSize ? s_ptrSize : size;
+		Size mod = s_ptrSize % minS;
+		Size actualSize = minS
+			+ (mod ? s_ptrSize - mod : 0)
+			+ s_ptrSize;
 
-			iter = _tryMallocN(start, blockNum);
-		} while (!iter);
+		void* curSeg = m_data;
+		void* prevSeg = _tryMallocN(curSeg, actualSize);
 
-		void* meta = _nextOf(start);
-		(*static_cast<size_t*>(meta)) = blockNum;
-
-		_nextOf(start) = _nextOf(iter);
+		if (curSeg) {
+			void* newBlockStart = nullptr;
+			if (_segSize(curSeg) - actualSize != 0u || 
+				_nextSeg(curSeg)) {
+				newBlockStart = static_cast<char*>(curSeg) + actualSize;
+				_segSize(newBlockStart) = _segSize(curSeg) - actualSize;
+			}
+			if (prevSeg && prevSeg != curSeg) {
+				_nextSeg(prevSeg) = newBlockStart;
+			} else if (curSeg == m_data) {
+				m_data = newBlockStart;
+			}
+			_segSize(curSeg) = actualSize;
 
 #if HEAP_BASED_POOL_ENABLE_MEM_LOG
-		_log(static_cast<char*>(meta) + s_ptrSize, blockNum, true);
+			_log(static_cast<char*>(curSeg) + s_ptrSize, actualSize , true);
 #endif
-		return static_cast<char*>(meta) + s_ptrSize;
-	}
 
+			return static_cast<char*>(curSeg) + s_ptrSize;
+		}
+
+		return nullptr;
+	}
+	
 	//-----------------------------------------------------------
 	void FreeListStorage::free(void* ptr)
 	{
-		void* actualAddres = static_cast<char*>(ptr) - s_ptrSize;
+		if (!ptr)
+			return;
 
+		void* actualAddres = static_cast<char*>(ptr) - s_ptrSize;
 #if HEAP_BASED_POOL_ENABLE_MEM_LOG
 		_log(static_cast<char*>(ptr), *static_cast<size_t*>(actualAddres), false);
 #endif
-		addBLock(actualAddres, *static_cast<size_t*>(actualAddres) * s_ptrSize);
+		addBLock(actualAddres, _segSize(actualAddres));
 	}
 
 	//-----------------------------------------------------------
@@ -49,8 +63,30 @@ namespace hbp
 		void* pos = _findPrev(ptr);
 		if (!pos)
 			m_data = _makeList(ptr, m_data, size);
-		else
-			_nextOf(pos) = _makeList(ptr, _nextOf(pos), size);
+		else {
+			void* nextSeg = _makeList(ptr, _nextSeg(pos), size);
+			if (static_cast<char*>(pos) + _segSize(pos) == nextSeg) {
+				_segSize(pos) += _segSize(nextSeg);
+			} else {
+				_nextSeg(pos) = nextSeg;
+			}
+		}
+	}
+
+	//-----------------------------------------------------------
+	void* FreeListStorage::_findPrev(void* const ptr) const
+	{
+		if (!m_data || ptr < m_data)
+			return nullptr;
+
+		void* iter = m_data;
+		void* next = nullptr;
+		while (true) {
+			next = _nextSeg(iter);
+			if (!next || ptr < next)
+				return iter;
+			iter = next;
+		}
 	}
 
 	//-----------------------------------------------------------
@@ -60,53 +96,15 @@ namespace hbp
 	}
 
 	//defragmentation functionality
+	
 	//-----------------------------------------------------------
 	void FreeListStorage::getNextHole(void*& nextHole, Size& holeSize, void* start /*nullptr*/) const
 	{
-		if (!start) {
-			nextHole = m_data;
-			holeSize = getHoleSizeInBlocks(&nextHole);
-		} else {
-			holeSize = getHoleSizeInBlocks(&start);
-			nextHole = _nextOf(static_cast<char*>(start) + holeSize * s_ptrSize);
-		}
+		nextHole = start != nullptr ? _nextSeg(start) : m_data;
+		if (nextHole)
+			holeSize = _segSize(nextHole);
 	}
 
-	//-----------------------------------------------------------
-	CSize FreeListStorage::getHoleSizeInBlocks(void* ptr) const
-	{
-		void* b = _nextOf(ptr);
-		void* next;
-		Size n = 0u;
-		do {
-			next = _nextOf(b);
-			if (next != (static_cast<char*>(b) + s_ptrSize))
-				break;
-			n++;
-			b = next;
-		} while (next);
-		return n;
-	}
-
-	void FreeListStorage::swap(void* dest, void* src, CSize size)
-	{
-		::memcpy(dest, src, size);
-	}
-
-	//-----------------------------------------------------------
-	void* FreeListStorage::_findPrev(void* const ptr) const
-	{
-		if (!m_data || ptr < m_data)
-			return nullptr;
-
-		void* iter = _nextOf(m_data);
-
-		while (true) {
-			if (!_nextOf(iter) || ptr < iter)
-				return iter;
-			iter = _nextOf(iter);
-		}
-	}
 #if  HEAP_BASED_POOL_ENABLE_MEM_LOG
 	//-----------------------------------------------------------
 	void FreeListStorage::_log(const void* const ptr, CSize blockNum, const bool isAllocation)
@@ -114,7 +112,7 @@ namespace hbp
 		//memory location
 		//size of allocated memory in blocks
 		printf_s("*************************************************************\n");
-		printf_s("At memory location[%p] has been %s [%d] blocks of memory\n",
+		printf_s("At memory location[%p] has been %s [%zu] bytes of memory\n",
 			ptr,
 			isAllocation ? "allocated" : "freed",
 			blockNum);
@@ -124,45 +122,37 @@ namespace hbp
 	//-----------------------------------------------------------
 	void* FreeListStorage::_makeList(void* const begin, void* const end, CSize size)
 	{
-		char* old = static_cast<char*>(begin) + size - s_ptrSize;
-
-		_nextOf(old) = end;
-
-		if (begin == old)
-			return begin;
-
-		for (char* iter = old - s_ptrSize;
-			iter != begin;
-			old = iter, iter -= s_ptrSize) {
-			_nextOf(iter) = old;
+		Size totalSize = size;
+		void* nextSeg = end;
+		if (static_cast<char*>(begin) + size == end) {
+			totalSize += _segSize(end);
+			nextSeg = _nextSeg(end);
 		}
-
-		_nextOf(begin) = old;
-
+		_segSize(begin) = totalSize;
+		_nextSeg(begin) = nextSeg;
 		return begin;
 	}
 
 	//-----------------------------------------------------------
 	void* FreeListStorage::_tryMallocN(void*& begin, Size n)
 	{
-		void* b = _nextOf(begin);
-		while (--n != 0) {
-			void* next = _nextOf(b);
-			if (next != (static_cast<char*>(b) + s_ptrSize)) {
-				begin = b;
-				return nullptr;
-			}
-			b = next;
+		Size segSize = 0u;
+		void* prev = nullptr;
+		while(begin) {
+			segSize = _segSize(begin);
+			if (segSize >= n)
+				break;
+			prev = begin;
+			begin = _nextSeg(begin);
 		}
-		return b;
+		return prev;
 	}
 
 	//-----------------------------------------------------------
 	HeapStorage::HeapStorage()
 		:m_data{ nullptr }
 		,m_currentSize{ 0u }
-		,m_maxSize{ 0u }
-		
+		,m_maxSize{ 0u }	
 	{
 	}
 
@@ -196,33 +186,112 @@ namespace hbp
 	//-----------------------------------------------------------
 	void* HeapStorage::malloc(CSize size)
 	{
+		if (!m_data) {
+			printf_s("Heap storage isn't initialized!\n");
+			return nullptr;
+		} else if (size + s_ptrSize > m_maxSize - m_currentSize) {
+			if (!_reinit(size + s_ptrSize + s_ptrSize)) {/*obj size + meta data about obj + metadata about FreeListStorage*/
+
+				printf_s("There isn't enough space in HeapStorage. Required spase is[%zu], and current space is[%zu], and max space is[%zu]\n",
+					size + s_ptrSize, m_currentSize, m_maxSize);
+				return nullptr;
+			}
+		}
+
 		void* res = m_storage.malloc(size);
-		m_currentSize += size + s_ptrSize;
+		if (res){
+			Size oS = m_storage.getObjSizeInBytes(res) + s_ptrSize;
+			m_currentSize += oS;
+		} else if (_canDefragment(size + s_ptrSize)) {
+			//try defragment
+			_defragment();
+			res = m_storage.malloc(size);
+			if (!res) {
+				printf_s("Bad alloc after defragmetation, malloc has returned nullptr!\n");
+				DEBUG_DumpAllFreeMemory();
+				return res;
+			}
+			m_currentSize += m_storage.getObjSizeInBytes(res) + s_ptrSize;
+		}
 		return res;
 	}
 
 	//-----------------------------------------------------------
 	void HeapStorage::free(void* ptr)
 	{
+		if (!ptr || m_currentSize == 0u) 
+			return;
+		
 		m_currentSize -= m_storage.getObjSizeInBytes(ptr) + s_ptrSize;
 		m_storage.free(ptr);
 	}
 
 	//-----------------------------------------------------------
-	bool HeapStorage::_reinit()
+	void HeapStorage::DEBUG_DumpAllFreeMemory()
 	{
-		Size newSize = m_maxSize + m_maxSize / 2;
+#if not defined (NDEBUG)
+		void* nextHole;
+		void* start = nullptr;
+		Size holeSize;
+		printf_s("*************************************************************\n");
+		printf_s("[DEBUG] Dump all free memory\n");
+		do {
+			m_storage.getNextHole(nextHole, holeSize, start);
+			if (nextHole)
+			{
+				printf_s("[DEBUG] Memory block start [0x%p] -> memory block end [0x%p], block size [%zu]\n", 
+					nextHole, static_cast<char*>(nextHole) + holeSize, holeSize);
+				start = nextHole;
+			}
+		} while (nextHole != nullptr);
+		printf_s("[DEBUG] Current size[%zu], Max size[%zu]\n", m_currentSize, m_maxSize);
+		printf_s("*************************************************************\n");
+#endif
+	}
+
+	//-----------------------------------------------------------
+	void HeapStorage::cleanAll()
+	{
+		if (m_data) {
+			std::free(m_data);
+			m_data = nullptr;
+			m_currentSize = m_maxSize = 0u;
+			m_storage.reinit(nullptr);
+		}
+	}
+
+	//-----------------------------------------------------------
+	bool HeapStorage::_reinit(CSize requestedSize)
+	{
+		//calculate new size
+		Size newMaxSize = m_maxSize;
+		constexpr CSize maxSize = std::numeric_limits<Size>::max();
+
+		while (requestedSize > newMaxSize - m_currentSize &&
+			maxSize - newMaxSize > newMaxSize / 2)
+		{
+			newMaxSize = newMaxSize + newMaxSize / 2;
+		}
+		
 		void* newData = nullptr;
 
-		if (newSize == 0) {
-			printf_s("Heap is empty, so defragmentation is not needed!\n");
+		if (maxSize - newMaxSize < newMaxSize / 2 ||
+			requestedSize > newMaxSize - m_currentSize) {
+			printf_s("Cannot add more memory, it will exceed limit!"
+				"Current size[%zu], MaxSize[%zu], RequestedSize[%zu]\n", 
+				m_currentSize, m_maxSize, requestedSize);
 			return false;
 		}
 		
-		newData = std::malloc(newSize);
+		newData = std::malloc(newMaxSize);
 		
+		if (!newData) {
+			printf_s("Bad alloc, malloc has returned nullptr!\n");
+			return false;
+		}
+
 		FreeListStorage newStorage;
-		newStorage.addBLock(newData, newSize);
+		newStorage.addBLock(newData, newMaxSize);
 		
 		HandleManager::iterator b = GetHandleManager().begin();
 		HandleManager::iterator e = GetHandleManager().end();
@@ -235,14 +304,14 @@ namespace hbp
 			b->second = obj;
 		}
 		
-		m_storage.reinit(&newStorage);
-
 		if (m_data) {
 			std::free(m_data);
 			m_data = newData;
 		}
 
-		m_maxSize = newSize;
+		m_storage.reinit(&newStorage);
+
+		m_maxSize = newMaxSize;
 		return true;
 	}
 
@@ -265,7 +334,7 @@ namespace hbp
 
 			for (; b != e; b++) {
 				if (b->second > hole && 
-					(objSize = m_storage.getObjSizeInBlocks(b->second)) <= holeSize) {
+					(objSize = m_storage.getObjSizeInBytes(b->second)) <= holeSize) {
 					obj = b->second;
 					break;
 				}
@@ -280,11 +349,19 @@ namespace hbp
 			//3. swap hole with object
 			if (obj) {
 				void* newObj = m_storage.malloc(objSize);
-				::memcpy(newObj, obj, objSize * s_ptrSize);
+				::memcpy(newObj, obj, objSize);
 				b->second = newObj;
 				m_storage.free(obj);
 			}
 		}
+	}
+
+	HeapStorage g_heapStorage{};
+
+	//-----------------------------------------------------------
+	HeapStorage& GetHeapStorage()
+	{
+		return g_heapStorage;
 	}
 
 	//-----------------------------------------------------------
@@ -314,7 +391,9 @@ namespace hbp
 	//-----------------------------------------------------------
 	void HeapStorageHandles::free(IHandle* ptr)
 	{
-		HeapStorage::free(helpers::destroyHandle(ptr));
+		if (!ptr)
+			return;
+//		HeapStorage::free(helpers::destroyHandle(ptr));
 	}
 
 	//-----------------------------------------------------------
@@ -324,9 +403,18 @@ namespace hbp
 	*/
 	void HeapStorageHandles::free_n(IHandle* ptr, CSize handlesNumber)
 	{
+		if (!ptr)
+			return;
 		for (Size i = 0; i < handlesNumber; i++)
 		{
-			HeapStorage::free(helpers::destroyHandle(ptr + i));
+			//HeapStorage::free(helpers::destroyHandle(ptr + i));
 		}
 	}
+
+	//-----------------------------------------------------------
+	void handleRelease(void* ptr)
+	{
+		GetHeapStorage().free(ptr);
+	}
+
 }//namaspace hbp

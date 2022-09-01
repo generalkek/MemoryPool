@@ -17,7 +17,9 @@ namespace hbp
 	class FreeListStorage
 	{
 	public:
-								FreeListStorage() : m_data{ nullptr } {}
+								FreeListStorage() 
+									: m_data{ nullptr }
+								{}
 								~FreeListStorage() {}
 
 		void*					malloc(CSize size);
@@ -28,20 +30,18 @@ namespace hbp
 
 		inline CSize			getObjSizeInBlocks(void* ptr) const 
 		{
-			return *(static_cast<size_t*>(static_cast<void*>(static_cast<char*>(ptr) - s_ptrSize))) - 1;
+			return getObjSizeInBytes(ptr) / s_ptrSize;
 		}
 
 		inline CSize			getObjSizeInBytes(void* ptr) const
 		{
-			return getObjSizeInBlocks(ptr) * s_ptrSize;
+			return _segSize(static_cast<char*>(ptr) - s_ptrSize) - s_ptrSize;
 		}
 
 	public:
 		//defragmentation functionality
 		void					getNextHole(void*& nextHole, Size& holeSize, void* start = nullptr) const;
-		CSize					getHoleSizeInBlocks(void* ptr) const;
-
-		void					swap(void* dest, void* src, CSize size);
+		
 	private:
 
 #if HEAP_BASED_POOL_ENABLE_MEM_LOG
@@ -51,11 +51,22 @@ namespace hbp
 		void*					_findPrev(void* const ptr) const;
 
 		static void*			_makeList(void* const begin, void* const end, CSize size);
+
 		static void*			_tryMallocN(void*& begin, Size n);
 		
 		inline static void*&	_nextOf(void* const p)
 		{
 			return *static_cast<void**>(p);
+		}
+
+		inline static Size&		_segSize(void* const p)
+		{
+			return *static_cast<Size*>(p);
+		}
+
+		inline static void*&	_nextSeg(void* const p)
+		{
+			return _nextOf(static_cast<char*>(p) + _segSize(p) - s_ptrSize);
 		}
 
 	private:
@@ -76,12 +87,15 @@ namespace hbp
 		void*					malloc(CSize size);
 		void					free(void* ptr);
 
-	public:
-		bool					_reinit();
+		void					DEBUG_DumpAllFreeMemory();
+
+		void					cleanAll();
 
 	private:
+
+		bool					_reinit(CSize requestedSize);
+		
 		inline bool				_canDefragment(CSize size) const { return m_maxSize - m_currentSize >= size; }
-	public:
 		void					_defragment();
 
 	private:
@@ -90,6 +104,8 @@ namespace hbp
 		Size			m_currentSize;
 		Size			m_maxSize;
 	};
+
+	HeapStorage& GetHeapStorage();
 
 	//forward declarations
 	class IHandle;
